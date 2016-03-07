@@ -1,3 +1,3 @@
-quad-trees
+quad-tree
 ==========
 README text here.
