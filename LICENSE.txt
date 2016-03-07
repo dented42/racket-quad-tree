@@ -1,4 +1,4 @@
-quad-trees
+quad-tree
 Copyright (c) 2016 dented42
 
 This package is distributed under the GNU Lesser General Public
