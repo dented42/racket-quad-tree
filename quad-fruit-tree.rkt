@@ -3,6 +3,10 @@
 (provide QFTreeof qftree?
          QFTree-Branch qftree-leaf?
          QFTree-Leaf qftree-branch?
+
+         qfleaf
+         qfbranch
+         
          qftree->sexp
          
          Quadrant-Name
@@ -37,6 +41,18 @@
 (define-predicate qftree? (QFTreeof Any Any))
 (define-predicate qftree-leaf? (QFTree-Leaf Any Any))
 (define-predicate qftree-branch? (QFTree-Branch Any Any))
+
+(: qfleaf (∀ (L F) (L → (QFTree-Leaf L F))))
+(define (qfleaf l)
+  (quad-fruit-leaf l))
+
+(: qfbranch (∀ (L F) (F
+                      (QFTreeof L F)
+                      (QFTreeof L F)
+                      (QFTreeof L F)
+                      (QFTreeof L F) → (QFTree-Branch L F))))
+(define (qfbranch f t1 t2 t3 t4)
+  (quad-fruit-branch f t1 t2 t3 t4))
 
 (: qftree->sexp ((QFTreeof Any Any) → (Sexpof Any)))
 (define (qftree->sexp t)
