@@ -30,7 +30,7 @@
 (define-predicate qftree-leaf? (QFTree-Leaf Any Any))
 (define-predicate qftree-branch? (QFTree-Branch Any Any))
 
-(: qftree->sexp (∀ (L F) ((QFTreeof L F) → (Sexpof Any))))
+(: qftree->sexp ((QFTreeof Any Any) → (Sexpof Any)))
 (define (qftree->sexp t)
   (if (quad-fruit-leaf? t)
       `(leaf ,(quad-fruit-leaf-value t))
