@@ -3,16 +3,16 @@
 (provide QFTreeof qftree?
          QFTree-Branch qftree-leaf?
          QFTree-Leaf qftree-branch?
-;         qftree->sexp
+         qftree->sexp
          
-;         Quadrant-Name
-;         Quadrant-Path
+         Quadrant-Name
+         Quadrant-Path
          
-;         qftree-ref
-;         qftree-ref*
+         qftree-ref
+         qftree-ref*
          
-;         qftree-map
-#;         qftree-fold)
+         qftree-map
+         qftree-fold)
 
 (struct (L F) quad-fruit-leaf ([value : L]))
 (struct (L F) quad-fruit-branch ([fruit : F]
