@@ -1,34 +1,75 @@
 #lang typed/racket/base
 
-(provide Quad-Treeof
-         (struct-out quad-leaf)
-         (struct-out quad-tree)
-         quad-tree-map
-         quad-tree-fold)
+(provide QTreeof qtree?
+         QTree-Branch qtree-leaf?
+         QTree-Leaf qtree-branch?
+         qtree->sexp
+         
+         Quadrant-Name
+         Quadrant-Path
+         
+         qtree-ref
+         qtree-ref*
+         
+         qtree-map
+         qtree-fold)
 
-(define-type (Quad-Treeof A) (U (quad-leaf A) (quad-tree A)))
+(struct (L) quad-leaf ([value : L]))
+(struct (L) quad-branch ([∨∨ : (QTreeof L)]
+                         [∨∧ : (QTreeof L)]
+                         [∧∨ : (QTreeof L)]
+                         [∧∧ : (QTreeof L)]))
 
-(struct (A) quad-leaf ([value : A]) #:transparent)
-(struct (A) quad-tree ([|00| : (Quad-Treeof A)]
-                       [|01| : (Quad-Treeof A)]
-                       [|10| : (Quad-Treeof A)]
-                       [|11| : (Quad-Treeof A)])
-  #:transparent)
+(define-type (QTree-Leaf L) (quad-leaf L))
+(define-type (QTree-Branch L) (quad-branch L))
+(define-type (QTreeof L) (U (QTree-Leaf L)
+                            (QTree-Branch L)))
 
-(: quad-tree-map (∀ (A B) ((A → B) (Quad-Treeof A) → (Quad-Treeof B))))
-(define (quad-tree-map f t)
-  (if (quad-tree? t)
-      (quad-tree (quad-tree-map f (quad-tree-00 t))
-                 (quad-tree-map f (quad-tree-01 t))
-                 (quad-tree-map f (quad-tree-10 t))
-                 (quad-tree-map f (quad-tree-11 t)))
+(define-predicate qtree? (QTreeof Any))
+(define-predicate qtree-leaf? (QTree-Leaf Any))
+(define-predicate qtree-branch? (QTree-Branch Any))
+
+(: qtree->sexp (∀ (L) ((QTreeof L) → (Sexpof L))))
+(define (qtree->sexp t)
+  (if (qtree-leaf? t)
+      `(leaf ,(quad-leaf-value t))
+      `(branch ,(qtree->sexp (quad-branch-∨∨ t))
+               ,(qtree->sexp (quad-branch-∨∧ t))
+               ,(qtree->sexp (quad-branch-∧∨ t))
+               ,(qtree->sexp (quad-branch-∧∧ t)))))
+
+(define-type Quadrant-Name (U '∨∨ '∨∧ '∧∨ '∧∧))
+(define-type Quadrant-Path (Listof Quadrant-Name))
+
+(: qtree-ref (∀ (L) ((quad-branch L) Quadrant-Name → (QTreeof L))))
+(define (qtree-ref t q)
+  (case q
+    [(∨∨) (quad-branch-∨∨ t)]
+    [(∨∧) (quad-branch-∨∧ t)]
+    [(∧∨) (quad-branch-∧∨ t)]
+    [(∧∧) (quad-branch-∧∧ t)]))
+
+(: qtree-ref* (∀ (L) ((QTreeof L) Quadrant-Path → (QTreeof L))))
+(define (qtree-ref* t p)
+  (cond
+    [(null? p) t]
+    [(quad-leaf? t) (error "Cannot get children of a leaf.")]
+    [(qtree-ref* (qtree-ref t (car p)) (cdr p))]))
+
+(: qtree-map (∀ (A B) ((A → B) (QTreeof A) → (QTreeof B))))
+(define (qtree-map f t)
+  (if (quad-branch? t)
+      (quad-branch (qtree-map f (quad-branch-∨∨ t))
+                   (qtree-map f (quad-branch-∨∧ t))
+                   (qtree-map f (quad-branch-∧∨ t))
+                   (qtree-map f (quad-branch-∧∧ t)))
       (quad-leaf (f (quad-leaf-value t)))))
 
-(: quad-tree-fold (∀ (A B) ((B B B B → B) (A → B) (Quad-Treeof A) → B)))
-(define (quad-tree-fold node-f leaf-f t)
-  (if (quad-tree? t)
-      (node-f (quad-tree-fold node-f leaf-f (quad-tree-00 t))
-              (quad-tree-fold node-f leaf-f (quad-tree-01 t))
-              (quad-tree-fold node-f leaf-f (quad-tree-10 t))
-              (quad-tree-fold node-f leaf-f (quad-tree-11 t)))
+(: qtree-fold (∀ (A B) ((B B B B → B) (A → B) (QTreeof A) → B)))
+(define (qtree-fold node-f leaf-f t)
+  (if (quad-branch? t)
+      (node-f (qtree-fold node-f leaf-f (quad-branch-∨∨ t))
+              (qtree-fold node-f leaf-f (quad-branch-∨∧ t))
+              (qtree-fold node-f leaf-f (quad-branch-∧∨ t))
+              (qtree-fold node-f leaf-f (quad-branch-∧∧ t)))
       (leaf-f (quad-leaf-value t))))
