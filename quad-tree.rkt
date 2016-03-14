@@ -8,8 +8,11 @@
          Quadrant-Name
          Quadrant-Path
          
+         qbranch-ref
          qtree-ref
-         qtree-ref*
+
+         qbranch-set
+         qtree-set
          
          qtree-map
          qtree-fold)
@@ -41,20 +44,47 @@
 (define-type Quadrant-Name (U '∨∨ '∨∧ '∧∨ '∧∧))
 (define-type Quadrant-Path (Listof Quadrant-Name))
 
-(: qtree-ref (∀ (L) ((quad-branch L) Quadrant-Name → (QTreeof L))))
-(define (qtree-ref t q)
+(: qbranch-ref (∀ (L) ((quad-branch L) Quadrant-Name → (QTreeof L))))
+(define (qbranch-ref t q)
   (case q
     [(∨∨) (quad-branch-∨∨ t)]
     [(∨∧) (quad-branch-∨∧ t)]
     [(∧∨) (quad-branch-∧∨ t)]
     [(∧∧) (quad-branch-∧∧ t)]))
 
-(: qtree-ref* (∀ (L) ((QTreeof L) Quadrant-Path → (QTreeof L))))
-(define (qtree-ref* t p)
+(: qtree-ref (∀ (L) ((QTreeof L) Quadrant-Path → (QTreeof L))))
+(define (qtree-ref t p)
   (cond
     [(null? p) t]
     [(quad-leaf? t) (error "Cannot get children of a leaf.")]
-    [(qtree-ref* (qtree-ref t (car p)) (cdr p))]))
+    [(qtree-ref (qbranch-ref t (car p)) (cdr p))]))
+
+(: qbranch-set (∀ (L) ((QTree-Branch L) Quadrant-Name (QTreeof L) → (QTreeof L))))
+(define (qbranch-set tree quadrant update)
+  (case quadrant
+    [(∨∨) (quad-branch update
+                       (quad-branch-∨∧ tree)
+                       (quad-branch-∧∨ tree)
+                       (quad-branch-∧∧ tree))]
+    [(∨∧) (quad-branch (quad-branch-∨∨ tree)
+                       update
+                       (quad-branch-∧∨ tree)
+                       (quad-branch-∧∧ tree))]
+    [(∧∨) (quad-branch (quad-branch-∨∨ tree)
+                       (quad-branch-∨∧ tree)
+                       update
+                       (quad-branch-∧∧ tree))]
+    [(∧∧) (quad-branch (quad-branch-∨∨ tree)
+                       (quad-branch-∨∧ tree)
+                       (quad-branch-∧∨ tree)
+                       update)]))
+
+(: qtree-set (∀ (L) ((QTreeof L) Quadrant-Path (QTreeof L) → (QTreeof L))))
+(define (qtree-set tree path update)
+  (cond
+    [(null? path) update]
+    [(quad-leaf? tree) (error "Cannot set children of a leaf.")]
+    [(qtree-set (qbranch-ref tree (car path)) (cdr path) update)]))
 
 (: qtree-map (∀ (A B) ((A → B) (QTreeof A) → (QTreeof B))))
 (define (qtree-map f t)
