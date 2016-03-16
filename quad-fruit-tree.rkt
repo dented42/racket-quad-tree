@@ -157,14 +157,14 @@
       (xform (qfleaf-value tree))
       (qfbranch-fruit tree)))
 
-(: qftree-update/fold (∀ (L F) ((L → L)
+(: qftree-update/fold (∀ (L F) ((L → (QFTreeof L F))
                                 (L → F)
                                 (F F F F F → F) ; original, child1...4
                                 (F F F F → Quadrant-Name)
                                 (QFTreeof L F) → (QFTreeof L F))))
 (define (qftree-update/fold leaf-update leaf-xform node-xform quad-select tree)
   (if (qftree-leaf? tree)
-      (qfleaf (leaf-update (qfleaf-value tree)))
+      (leaf-update (qfleaf-value tree))
       (let* ([f1 (fruitify leaf-xform (quad-fruit-branch-∨∨ tree))]
              [f2 (fruitify leaf-xform (quad-fruit-branch-∨∧ tree))]
              [f3 (fruitify leaf-xform (quad-fruit-branch-∧∨ tree))]
