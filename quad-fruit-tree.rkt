@@ -25,7 +25,10 @@
          qftree-fold
 
          qftree-update
+         qftree-update/fold
          qftree-update/leaf)
+
+(require quad-tree/private/control-flow)
 
 (struct (L F) quad-fruit-leaf ([value : L]))
 (struct (L F) quad-fruit-branch ([fruit : F]
@@ -101,27 +104,12 @@
 
 (: qfbranch-set (∀ (L F) ((QFTree-Branch L F) Quadrant-Name (QFTreeof L F) → (QFTreeof L F))))
 (define (qfbranch-set tree quadrant update)
-  (case quadrant
-    [(∨∨) (quad-fruit-branch (quad-fruit-branch-fruit tree)
-                             update
-                             (quad-fruit-branch-∨∧ tree)
-                             (quad-fruit-branch-∧∨ tree)
-                             (quad-fruit-branch-∧∧ tree))]
-    [(∨∧) (quad-fruit-branch (quad-fruit-branch-fruit tree)
-                             (quad-fruit-branch-∨∨ tree)
-                             update
-                             (quad-fruit-branch-∧∨ tree)
-                             (quad-fruit-branch-∧∧ tree))]
-    [(∧∨) (quad-fruit-branch (quad-fruit-branch-fruit tree)
-                             (quad-fruit-branch-∨∨ tree)
-                             (quad-fruit-branch-∨∧ tree)
-                             update
-                             (quad-fruit-branch-∧∧ tree))]
-    [(∧∧) (quad-fruit-branch (quad-fruit-branch-fruit tree)
-                             (quad-fruit-branch-∨∨ tree)
-                             (quad-fruit-branch-∨∧ tree)
-                             (quad-fruit-branch-∧∨ tree)
-                             update)]))
+  (quad-case quadrant
+             (quad-fruit-branch (quad-fruit-branch-fruit tree)
+                                (quad-switch ∨∨ update (quad-fruit-branch-∨∨ tree))
+                                (quad-switch ∨∧ update (quad-fruit-branch-∨∧ tree))
+                                (quad-switch ∧∨ update (quad-fruit-branch-∧∨ tree))
+                                (quad-switch ∧∧ update (quad-fruit-branch-∧∧ tree)))))
 
 (: qftree-set (∀ (L F) ((QFTreeof L F) Quadrant-Path (QFTreeof L F) → (QFTreeof L F))))
 (define (qftree-set tree path update)
@@ -142,15 +130,15 @@
                          (qftree-map leaf-func fruit-func (quad-fruit-branch-∧∧ t)))
       (quad-fruit-leaf (leaf-func (quad-fruit-leaf-value t)))))
 
-(: qftree-fold (∀ (L F X) ((F X X X X → X) (L → X) (QFTreeof L F) → X)))
-(define (qftree-fold node-f leaf-f t)
-     (if (quad-fruit-branch? t)
+(: qftree-fold (∀ (L F X) ((L → X) (F X X X X → X) (QFTreeof L F) → X)))
+(define (qftree-fold leaf-f node-f t)
+     (if (qftree-leaf? t)
+         (leaf-f (quad-fruit-leaf-value t))
          (node-f (quad-fruit-branch-fruit t)
-                 (qftree-fold node-f leaf-f (quad-fruit-branch-∨∨ t))
-                 (qftree-fold node-f leaf-f (quad-fruit-branch-∨∧ t))
-                 (qftree-fold node-f leaf-f (quad-fruit-branch-∧∨ t))
-                 (qftree-fold node-f leaf-f (quad-fruit-branch-∧∧ t)))
-         (leaf-f (quad-fruit-leaf-value t))))
+                 (qftree-fold leaf-f node-f (quad-fruit-branch-∨∨ t))
+                 (qftree-fold leaf-f node-f (quad-fruit-branch-∨∧ t))
+                 (qftree-fold leaf-f node-f (quad-fruit-branch-∧∨ t))
+                 (qftree-fold leaf-f node-f (quad-fruit-branch-∧∧ t)))))
 
 (: qftree-update (∀ (L F) ((QFTreeof L F)
                            (F → (U #f Quadrant-Name))
@@ -162,6 +150,41 @@
      => (λ (step)
           (qfbranch-set tree step (qftree-update (qfbranch-ref tree step) path-finder updater)))]
     [else (updater tree)]))
+
+(: fruitify (∀ (L F) ((L → F) (QFTreeof L F) → F)))
+(define (fruitify xform tree)
+  (if (qftree-leaf? tree)
+      (xform (qfleaf-value tree))
+      (qfbranch-fruit tree)))
+
+(: qftree-update/fold (∀ (L F) ((L → L)
+                                (L → F)
+                                (F F F F F → F) ; original, child1...4
+                                (F F F F → Quadrant-Name)
+                                (QFTreeof L F) → (QFTreeof L F))))
+(define (qftree-update/fold leaf-update leaf-xform node-xform quad-select tree)
+  (if (qftree-leaf? tree)
+      (qfleaf (leaf-update (qfleaf-value tree)))
+      (let* ([f1 (fruitify leaf-xform (quad-fruit-branch-∨∨ tree))]
+             [f2 (fruitify leaf-xform (quad-fruit-branch-∨∧ tree))]
+             [f3 (fruitify leaf-xform (quad-fruit-branch-∧∨ tree))]
+             [f4 (fruitify leaf-xform (quad-fruit-branch-∧∧ tree))]
+             [quad (quad-select f1 f2 f3 f3)]
+             [child (qftree-update/fold leaf-update
+                                        leaf-xform
+                                        node-xform
+                                        quad-select
+                                        (qfbranch-ref tree quad))])
+        (quad-case quad
+                   (qfbranch (node-xform (qfbranch-fruit tree)
+                                         (quad-switch ∨∨ (fruitify leaf-xform child) f1)
+                                         (quad-switch ∨∧ (fruitify leaf-xform child) f2)
+                                         (quad-switch ∧∨ (fruitify leaf-xform child) f3)
+                                         (quad-switch ∧∧ (fruitify leaf-xform child) f4))
+                             (quad-switch ∨∨ child (quad-fruit-branch-∨∨ tree))
+                             (quad-switch ∨∧ child (quad-fruit-branch-∨∧ tree))
+                             (quad-switch ∧∨ child (quad-fruit-branch-∧∨ tree))
+                             (quad-switch ∧∧ child (quad-fruit-branch-∧∧ tree)))))))
 
 (: qftree-update/leaf (∀ (L F) ((QFTreeof L F)
                                 (F → Quadrant-Name)
