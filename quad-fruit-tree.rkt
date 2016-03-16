@@ -12,6 +12,7 @@
          Quadrant-Name
          Quadrant-Path
 
+         qfleaf-value
          qfbranch-fruit
          qfbranch-ref
          qftree-ref
@@ -66,6 +67,10 @@
 
 (define-type Quadrant-Name (U '∨∨ '∨∧ '∧∨ '∧∧))
 (define-type Quadrant-Path (Listof Quadrant-Name))
+
+(: qfleaf-value (∀ (L F) ((QFTree-Leaf L F) → L)))
+(define (qfleaf-value l)
+  (quad-fruit-leaf-value l))
 
 (: qfbranch-fruit (∀ (L F) ((QFTree-Branch L F) → F)))
 (define (qfbranch-fruit t)
