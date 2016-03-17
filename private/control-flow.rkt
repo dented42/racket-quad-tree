@@ -22,7 +22,19 @@
       [(_ q:qname succeed:expr fail:expr)
        (if (eq? quad (syntax-e #'q))
            #'succeed
-           #'fail)])))
+           #'fail)]
+      [(_ (q:qname ...) succeed:expr fail:expr)
+       (if (memq quad (syntax->datum #'(q ...)))
+           #'succeed
+           #'fail)]
+      [(_ ((q:qname succeed:expr) ...) fail:expr)
+       (cond
+         [(findf (λ (qclause)
+                   (eq? quad (car (syntax->datum qclause))))
+                 (syntax-e #'((q succeed) ...)))
+          => (λ (qclause)
+               (cadr (syntax-e qclause)))]
+         [else #'fail])])))
 
 (define-syntax (quad-case stx)
   (syntax-parse stx

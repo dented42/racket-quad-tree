@@ -28,7 +28,8 @@
          qftree-update/fold
          qftree-update/leaf)
 
-(require quad-tree/private/control-flow)
+(require quad-tree/private/control-flow
+         racket/function)
 
 (struct (L F) quad-fruit-leaf ([value : L]))
 (struct (L F) quad-fruit-branch ([fruit : F]
@@ -157,30 +158,40 @@
       (xform (qfleaf-value tree))
       (qfbranch-fruit tree)))
 
-(: qftree-update/fold (∀ (L F) ((L → (QFTreeof L F))
-                                (L → F)
-                                (F F F F F → F) ; original, child1...4
-                                (F F F F → Quadrant-Name)
-                                (QFTreeof L F) → (QFTreeof L F))))
-(define (qftree-update/fold leaf-update leaf-xform node-xform quad-select tree)
+(: qftree-update/fold (∀ (L F C ...) ((L C ... → (QFTreeof L F))
+                                (L C ... → F)
+                                (F F F F F C ... → F) ; original, child1...4
+                                (F F F F C ... → Quadrant-Name)
+                                (Quadrant-Name C ... → (List C ...))
+                                (QFTreeof L F) C ... → (QFTreeof L F))))
+(define (qftree-update/fold leaf-update leaf-xform node-xform quad-select ctxt-refine tree . ctxt)
+  (define (leaf-xform* [q : Quadrant-Name] [ctxt : (List C ...) ctxt]) : (L → F)
+    (λ ([leaf : L])
+      (apply leaf-xform leaf (apply ctxt-refine q ctxt))))
   (if (qftree-leaf? tree)
-      (leaf-update (qfleaf-value tree))
-      (let* ([f1 (fruitify leaf-xform (quad-fruit-branch-∨∨ tree))]
-             [f2 (fruitify leaf-xform (quad-fruit-branch-∨∧ tree))]
-             [f3 (fruitify leaf-xform (quad-fruit-branch-∧∨ tree))]
-             [f4 (fruitify leaf-xform (quad-fruit-branch-∧∧ tree))]
-             [quad (quad-select f1 f2 f3 f3)]
-             [child (qftree-update/fold leaf-update
-                                        leaf-xform
-                                        node-xform
-                                        quad-select
-                                        (qfbranch-ref tree quad))])
+      (apply leaf-update (qfleaf-value tree) ctxt)
+      (let* ([f1 (fruitify (leaf-xform* '∨∨) (quad-fruit-branch-∨∨ tree))]
+             [f2 (fruitify (leaf-xform* '∨∧) (quad-fruit-branch-∨∧ tree))]
+             [f3 (fruitify (leaf-xform* '∧∨) (quad-fruit-branch-∧∨ tree))]
+             [f4 (fruitify (leaf-xform* '∧∧) (quad-fruit-branch-∧∧ tree))]
+             [quad (apply quad-select f1 f2 f3 f3 ctxt)]
+             [ctxt* (apply ctxt-refine quad ctxt)]
+             [child (apply qftree-update/fold
+                           leaf-update
+                           leaf-xform
+                           node-xform
+                           quad-select
+                           ctxt-refine
+                           (qfbranch-ref tree quad)
+                           ctxt*)])
         (quad-case quad
-                   (qfbranch (node-xform (qfbranch-fruit tree)
-                                         (quad-switch ∨∨ (fruitify leaf-xform child) f1)
-                                         (quad-switch ∨∧ (fruitify leaf-xform child) f2)
-                                         (quad-switch ∧∨ (fruitify leaf-xform child) f3)
-                                         (quad-switch ∧∧ (fruitify leaf-xform child) f4))
+                   (qfbranch (apply node-xform
+                                    (qfbranch-fruit tree)
+                                    (quad-switch ∨∨ (fruitify (leaf-xform* '∨∨ ctxt*) child) f1)
+                                    (quad-switch ∨∧ (fruitify (leaf-xform* '∨∧ ctxt*) child) f2)
+                                    (quad-switch ∧∨ (fruitify (leaf-xform* '∧∨ ctxt*) child) f3)
+                                    (quad-switch ∧∧ (fruitify (leaf-xform* '∧∧ ctxt*) child) f4)
+                                    ctxt)
                              (quad-switch ∨∨ child (quad-fruit-branch-∨∨ tree))
                              (quad-switch ∨∧ child (quad-fruit-branch-∨∧ tree))
                              (quad-switch ∧∨ child (quad-fruit-branch-∧∨ tree))
