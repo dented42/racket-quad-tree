@@ -1,50 +1,55 @@
 #lang typed/racket/base
 
-(provide quad-case quad-switch)
+(provide dispatch-case dispatch)
 
 (require racket/stxparam
          (for-syntax racket/base
+                     racket/list
                      syntax/parse))
 
-(define-syntax-parameter quad-switch
+(define-syntax-parameter dispatch
   (λ (stx)
-    (raise-syntax-error (syntax-e stx) "can only be used inside quad-case")))
+    (raise-syntax-error (syntax-e stx) "can only be used inside dispatch-case")))
 
-(define-for-syntax (quad-switch-selector quad)
-  (define-syntax-class qname
-    #:datum-literals (∨∨ ∨∧ ∧∨ ∧∧)
-    (pattern ∨∨)
-    (pattern ∨∧)
-    (pattern ∧∨)
-    (pattern ∧∧))
+(define-for-syntax (dispatch-transformer this-case all-cases)
   (λ (stx)
     (syntax-parse stx
-      [(_ q:qname succeed:expr fail:expr)
-       (if (equal? quad (syntax-e #'q))
+      [(_ d:expr succeed:expr fail:expr)
+       #:fail-unless (member (syntax->datum #'d) (syntax->datum all-cases)) "unknown dispatch case"
+       (if (equal? (syntax->datum this-case) (syntax->datum #'d))
            #'succeed
            #'fail)]
-      [(_ (q:qname ...) succeed:expr fail:expr)
-       (if (member quad (syntax->datum #'(q ...)))
+      [(_ (d:expr ...) succeed:expr fail:expr)
+       #:fail-unless (andmap (λ (d)
+                               (member d (syntax->datum all-cases)))
+                             (syntax->datum #'(d ...)))
+       "unknown dispatch case"
+       #:fail-when (check-duplicates (syntax->datum #'(d ...)))
+       "overlapping dispatch cases"
+       (if (member (syntax->datum this-case) (syntax->datum #'(d ...)))
            #'succeed
            #'fail)]
-      [(_ ((q:qname succeed:expr) ...) fail:expr)
+      [(_ ((d:expr succeed:expr) ...) fail:expr)
+       #:fail-unless (andmap (λ (d)
+                               (member d (syntax->datum all-cases)))
+                             (syntax->datum #'(d ...)))
+       "unknown dispatch case"
+       #:fail-when (check-duplicates (syntax->datum #'(d ...)))
+       "overlapping dispatch cases"
        (cond
          [(findf (λ (qclause)
-                   (equal? quad (car (syntax->datum qclause))))
-                 (syntax-e #'((q succeed) ...)))
+                   (equal? (syntax->datum this-case) (car (syntax->datum qclause))))
+                 (syntax-e #'((d succeed) ...)))
           => (λ (qclause)
                (cadr (syntax-e qclause)))]
          [else #'fail])])))
 
-(define-syntax (quad-case stx)
+(define-syntax (dispatch-case stx)
   (syntax-parse stx
-    [(_ quad-selector:expr body:expr)
-     #`(case quad-selector
-         [(∨∨) (syntax-parameterize ([quad-switch (quad-switch-selector '∨∨)])
-                 body)]
-         [(∨∧) (syntax-parameterize ([quad-switch (quad-switch-selector '∨∧)])
-                 body)]
-         [(∧∨) (syntax-parameterize ([quad-switch (quad-switch-selector '∧∨)])
-                 body)]
-         [(∧∧) (syntax-parameterize ([quad-switch (quad-switch-selector '∧∧)])
-                 body)])]))
+    [(_ selector:expr (case-datum ...) body:expr)
+    #:fail-when (check-duplicates (syntax->datum #'(case-datum ...)))
+    "overlapping dispatch cases"
+     #`(case selector
+         [(case-datum) (syntax-parameterize ([dispatch (dispatch-transformer #'case-datum
+                                                                             #'(case-datum ...))])
+                         body)] ...)]))
