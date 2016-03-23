@@ -28,6 +28,8 @@
          qftree-update/fold
          qftree-update/leaf)
 
+(require quad-tree/shared)
+
 (require quad-tree/private/control-flow
          racket/function)
 
@@ -68,9 +70,6 @@
                ,(qftree->sexp (quad-fruit-branch-∨∧ t))
                ,(qftree->sexp (quad-fruit-branch-∧∨ t))
                ,(qftree->sexp (quad-fruit-branch-∧∧ t)))))
-
-(define-type Quadrant-Name (U '∨∨ '∨∧ '∧∨ '∧∧))
-(define-type Quadrant-Path (Listof Quadrant-Name))
 
 (: qfleaf-value (∀ (L F) ((QFTree-Leaf L F) → L)))
 (define (qfleaf-value l)

@@ -8,9 +8,6 @@
          qbranch
          
          qtree->sexp
-         
-         Quadrant-Name
-         Quadrant-Path
 
          qleaf-value
          qbranch-ref
@@ -21,6 +18,8 @@
          
          qtree-map
          qtree-fold)
+
+(require quad-tree/shared)
 
 (struct (L) quad-leaf ([value : L]))
 (struct (L) quad-branch ([∨∨ : (QTreeof L)]
@@ -53,9 +52,6 @@
                ,(qtree->sexp (quad-branch-∨∧ t))
                ,(qtree->sexp (quad-branch-∧∨ t))
                ,(qtree->sexp (quad-branch-∧∧ t)))))
-
-(define-type Quadrant-Name (U '∨∨ '∨∧ '∧∨ '∧∧))
-(define-type Quadrant-Path (Listof Quadrant-Name))
 
 (: qleaf-value (∀ (L) ((QTree-Leaf L) → L)))
 (define (qleaf-value l)
