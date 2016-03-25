@@ -157,22 +157,22 @@
       (qfbranch-fruit tree)))
 
 (: qftree-update/fold (∀ (L F C ...) ((L C ... → (QFTreeof L F))
-                                (L C ... → F)
-                                (F F F F F C ... → F) ; original, child1...4
-                                (F F F F C ... → Quadrant-Name)
-                                (Quadrant-Name C ... → (List C ...))
-                                (QFTreeof L F) C ... → (QFTreeof L F))))
+                                      (L C ... → F)
+                                      (F F F F F C ... → F) ; original, child1...4
+                                      ((QFTree-Branch L F) C ... → Quadrant-Name)
+                                      (Quadrant-Name C ... → (List C ...))
+                                      (QFTreeof L F) C ... → (QFTreeof L F))))
 (define (qftree-update/fold leaf-update leaf-xform node-xform quad-select ctxt-refine tree . ctxt)
   (define (leaf-xform* [q : Quadrant-Name] [ctxt : (List C ...) ctxt]) : (L → F)
     (λ ([leaf : L])
       (apply leaf-xform leaf (apply ctxt-refine q ctxt))))
   (if (qftree-leaf? tree)
       (apply leaf-update (qfleaf-value tree) ctxt)
-      (let* ([f1 (fruitify (leaf-xform* '∨∨) (quad-fruit-branch-∨∨ tree))]
-             [f2 (fruitify (leaf-xform* '∨∧) (quad-fruit-branch-∨∧ tree))]
-             [f3 (fruitify (leaf-xform* '∧∨) (quad-fruit-branch-∧∨ tree))]
-             [f4 (fruitify (leaf-xform* '∧∧) (quad-fruit-branch-∧∧ tree))]
-             [quad (apply quad-select f1 f2 f3 f3 ctxt)]
+      (let* (;[f1 (fruitify (leaf-xform* '∨∨) (quad-fruit-branch-∨∨ tree))]
+             ;[f2 (fruitify (leaf-xform* '∨∧) (quad-fruit-branch-∨∧ tree))]
+             ;[f3 (fruitify (leaf-xform* '∧∨) (quad-fruit-branch-∧∨ tree))]
+             ;[f4 (fruitify (leaf-xform* '∧∧) (quad-fruit-branch-∧∧ tree))]
+             [quad (apply quad-select tree ctxt)]
              [ctxt* (apply ctxt-refine quad ctxt)]
              [child (apply qftree-update/fold
                            leaf-update
@@ -185,10 +185,18 @@
         (dispatch-case/quad quad
           (qfbranch (apply node-xform
                            (qfbranch-fruit tree)
-                           (dispatch ∨∨ (fruitify (leaf-xform* '∨∨ ctxt*) child) f1)
-                           (dispatch ∨∧ (fruitify (leaf-xform* '∨∧ ctxt*) child) f2)
-                           (dispatch ∧∨ (fruitify (leaf-xform* '∧∨ ctxt*) child) f3)
-                           (dispatch ∧∧ (fruitify (leaf-xform* '∧∧ ctxt*) child) f4)
+                           (fruitify (dispatch ∨∨ (leaf-xform* '∨∨ ctxt*) (leaf-xform* '∨∨))
+                                     (dispatch ∨∨ child (quad-fruit-branch-∨∨ tree)))
+                           ;(dispatch ∨∨ (fruitify (leaf-xform* '∨∨ ctxt*) child) f1)
+                           (fruitify (dispatch ∨∧ (leaf-xform* '∨∧ ctxt*) (leaf-xform* '∨∧))
+                                     (dispatch ∨∧ child (quad-fruit-branch-∨∧ tree)))
+                           ;(dispatch ∨∧ (fruitify (leaf-xform* '∨∧ ctxt*) child) f2)
+                           (fruitify (dispatch ∧∨ (leaf-xform* '∧∨ ctxt*) (leaf-xform* '∧∨))
+                                     (dispatch ∧∨ child (quad-fruit-branch-∧∨ tree)))
+                           ;(dispatch ∧∨ (fruitify (leaf-xform* '∧∨ ctxt*) child) f3)
+                           (fruitify (dispatch ∧∧ (leaf-xform* '∧∧ ctxt*) (leaf-xform* '∧∧))
+                                     (dispatch ∧∧ child (quad-fruit-branch-∧∧ tree)))
+                           ;(dispatch ∧∧ (fruitify (leaf-xform* '∧∧ ctxt*) child) f4)
                            ctxt)
                     (dispatch ∨∨ child (quad-fruit-branch-∨∨ tree))
                     (dispatch ∨∧ child (quad-fruit-branch-∨∧ tree))
