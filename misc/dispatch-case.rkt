@@ -46,10 +46,13 @@
 
 (define-syntax (dispatch-case stx)
   (syntax-parse stx
-    [(_ selector:expr (case-datum ...) body:expr)
+    [(dispatch-case selector:expr (case-datum ...) body:expr)
     #:fail-when (check-duplicates (syntax->datum #'(case-datum ...)))
     "overlapping dispatch cases"
      #`(case selector
          [(case-datum) (syntax-parameterize ([dispatch (dispatch-transformer #'case-datum
                                                                              #'(case-datum ...))])
-                         body)] ...)]))
+                         body)] ...
+         [else (raise-syntax-error #f "dispatch-case fell through"
+                                   #'(dispatch-case selector (case-datum ...) body)
+                                   #'selector)])]))
