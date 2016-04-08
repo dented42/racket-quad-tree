@@ -24,9 +24,11 @@
          qftree-map
          qftree-fold
 
+         ;;; starred update functions thread a context throughout
          qftree-update
-         qftree-update/fold
-         qftree-update/leaf)
+         qftree-update*/fold
+         qftree-update/leaf
+         qftree-update*/leaf)
 
 (require quad-tree/shared)
 
@@ -156,25 +158,21 @@
       (xform (qfleaf-value tree))
       (qfbranch-fruit tree)))
 
-(: qftree-update/fold (∀ (L F C ...) ((L C ... → (QFTreeof L F))
+(: qftree-update*/fold (∀ (L F C ...) ((L C ... → (QFTreeof L F))
                                       (L C ... → F)
                                       (F F F F F C ... → F) ; original, child1...4
                                       ((QFTree-Branch L F) C ... → Quadrant-Name)
                                       (Quadrant-Name C ... → (List C ...))
                                       (QFTreeof L F) C ... → (QFTreeof L F))))
-(define (qftree-update/fold leaf-update leaf-xform node-xform quad-select ctxt-refine tree . ctxt)
+(define (qftree-update*/fold leaf-update leaf-xform node-xform quad-select ctxt-refine tree . ctxt)
   (define (leaf-xform* [q : Quadrant-Name] [ctxt : (List C ...) ctxt]) : (L → F)
     (λ ([leaf : L])
       (apply leaf-xform leaf (apply ctxt-refine q ctxt))))
   (if (qftree-leaf? tree)
       (apply leaf-update (qfleaf-value tree) ctxt)
-      (let* (;[f1 (fruitify (leaf-xform* '∨∨) (quad-fruit-branch-∨∨ tree))]
-             ;[f2 (fruitify (leaf-xform* '∨∧) (quad-fruit-branch-∨∧ tree))]
-             ;[f3 (fruitify (leaf-xform* '∧∨) (quad-fruit-branch-∧∨ tree))]
-             ;[f4 (fruitify (leaf-xform* '∧∧) (quad-fruit-branch-∧∧ tree))]
-             [quad (apply quad-select tree ctxt)]
+      (let* ([quad (apply quad-select tree ctxt)]
              [ctxt* (apply ctxt-refine quad ctxt)]
-             [child (apply qftree-update/fold
+             [child (apply qftree-update*/fold
                            leaf-update
                            leaf-xform
                            node-xform
@@ -187,16 +185,12 @@
                            (qfbranch-fruit tree)
                            (fruitify (dispatch ∨∨ (leaf-xform* '∨∨ ctxt*) (leaf-xform* '∨∨))
                                      (dispatch ∨∨ child (quad-fruit-branch-∨∨ tree)))
-                           ;(dispatch ∨∨ (fruitify (leaf-xform* '∨∨ ctxt*) child) f1)
                            (fruitify (dispatch ∨∧ (leaf-xform* '∨∧ ctxt*) (leaf-xform* '∨∧))
                                      (dispatch ∨∧ child (quad-fruit-branch-∨∧ tree)))
-                           ;(dispatch ∨∧ (fruitify (leaf-xform* '∨∧ ctxt*) child) f2)
                            (fruitify (dispatch ∧∨ (leaf-xform* '∧∨ ctxt*) (leaf-xform* '∧∨))
                                      (dispatch ∧∨ child (quad-fruit-branch-∧∨ tree)))
-                           ;(dispatch ∧∨ (fruitify (leaf-xform* '∧∨ ctxt*) child) f3)
                            (fruitify (dispatch ∧∧ (leaf-xform* '∧∧ ctxt*) (leaf-xform* '∧∧))
                                      (dispatch ∧∧ child (quad-fruit-branch-∧∧ tree)))
-                           ;(dispatch ∧∧ (fruitify (leaf-xform* '∧∧ ctxt*) child) f4)
                            ctxt)
                     (dispatch ∨∨ child (quad-fruit-branch-∨∨ tree))
                     (dispatch ∨∧ child (quad-fruit-branch-∨∧ tree))
@@ -211,3 +205,16 @@
       (updater (quad-fruit-leaf-value tree))
       (let ([step (path-finder (quad-fruit-branch-fruit tree))])
         (qfbranch-set tree step (qftree-update/leaf (qfbranch-ref tree step) path-finder updater)))))
+
+(: qftree-update*/leaf (∀ (L F C ...) ((QFTreeof L F)
+                                      (F C ... → (List Quadrant-Name C ...))
+                                      (L C ... → (QFTreeof L F))
+                                      C ... → (QFTreeof L F))))
+(define (qftree-update*/leaf tree path-finder updater . ctxt)
+  (if (quad-fruit-leaf? tree)
+      (apply updater (quad-fruit-leaf-value tree) ctxt)
+      (let ([step (apply path-finder (quad-fruit-branch-fruit tree) ctxt)])
+        (qfbranch-set tree (car step) (apply qftree-update*/leaf
+                                             (qfbranch-ref tree (car step))
+                                             path-finder updater
+                                             (cdr step))))))

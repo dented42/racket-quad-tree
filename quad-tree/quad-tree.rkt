@@ -17,7 +17,10 @@
          qtree-set
          
          qtree-map
-         qtree-fold)
+         qtree-fold
+
+         qtree-update*
+         qtree-update*/leaf)
 
 (require quad-tree/shared)
 
@@ -116,3 +119,31 @@
               (qtree-fold leaf-f node-f (quad-branch-∨∧ t))
               (qtree-fold leaf-f node-f (quad-branch-∧∨ t))
               (qtree-fold leaf-f node-f (quad-branch-∧∧ t)))))
+
+(: qtree-update* (∀ (L C ...) ((QTreeof L)
+                               (C ... → (Option (List Quadrant-Name C ...)))
+                               ((QTreeof L) C ... → (QTreeof L))
+                               C ... → (QTreeof L))))
+(define (qtree-update* tree path-finder updater . ctxt)
+  (cond
+    [(quad-leaf? tree) (apply updater tree ctxt)]
+    [(apply path-finder ctxt)
+     => (λ ([step : (List Quadrant-Name C ...)])
+          (qbranch-set tree (car step) (apply qtree-update*
+                                              (qbranch-ref tree (car step))
+                                              path-finder updater
+                                              (cdr step))))]
+    [else (apply updater tree ctxt)]))
+
+(: qtree-update*/leaf (∀ (L C ...) ((QTreeof L)
+                                    (C ... → (List Quadrant-Name C ...))
+                                    (L C ... → (QTreeof L))
+                                    C ... → (QTreeof L))))
+(define (qtree-update*/leaf tree path-finder updater . ctxt)
+  (if (quad-leaf? tree)
+      (apply updater (quad-leaf-value tree) ctxt)
+      (let ([step (apply path-finder ctxt)])
+        (qbranch-set tree (car step) (apply qtree-update*/leaf
+                                            (qbranch-ref tree (car step))
+                                            path-finder updater
+                                            (cdr step))))))
